@@ -24,3 +24,21 @@ write.csv(clean_data,
           row.names = FALSE)
 
 print("Fichier généré avec succès !")
+# ---  DIVISION DES DONNÉES ---
+
+# 1. Lecture du jeu de données complet
+data_complete <- read.csv("data/processed/chomage_clean.csv")
+
+# 2. Le dataset contient 80 observations (de 2006T1 à 2025T4)
+# Ensemble d'entraînement : observations de 1 à 72 (de 2006 à fin 2023)
+train_set <- data_complete[1:72, ]
+
+# Ensemble de test : observations de 73 à 80 (années 2024 et 2025)
+test_set <- data_complete[73:80, ]
+
+# 3. Enregistrement des sous-ensembles dans des fichiers CSV
+write.csv(train_set, "data/processed/chomage_train.csv", row.names = FALSE)
+write.csv(test_set, "data/processed/chomage_test.csv", row.names = FALSE)
+
+# Message de confirmation
+print("Les ensembles d'entraînement (72 observations) et de test (8 observations) ont été créés avec succès.")

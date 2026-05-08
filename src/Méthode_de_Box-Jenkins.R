@@ -107,18 +107,11 @@ if(q > 0){
 cat("La série a nécessité", d,
     "différenciation(s) pour devenir stationnaire.\n")
 
-
-
-
 # 10. MODÈLE FINAL
-
-
 cat("Modèle retenu : ARIMA(",
     p, ",", d, ",", q, ")\n")
 
-# ----------------------------------------------------------------------------
 # ÉTAPE 6 : ESTIMATION DU MODÈLE ARIMA
-# ----------------------------------------------------------------------------
 
 # Estimation du modèle identifié précédemment
 # Exemple : ARIMA(p,d,q)

@@ -1,4 +1,4 @@
-# --- SCRIPT POUR GÉNÉRER LE TABLEAU COMPARATIF ARIMA ---
+#  GÉNÉRER LE TABLEAU COMPARATIF ARIMA 
 
 # 1. Définir les plages pour p et q (ex: de 0 à 4)
 p_max <- 4
@@ -72,12 +72,8 @@ if (nrow(modeles_valides) > 0) {
 } else {
   print("Aucun modèle n'a été validé par le test de Box-Pierce.")
 }
-# ==========================================================
+
 # ÉTAPE 6 : ESTIMATION DU MODÈLE OPTIMAL IDENTIFIÉ
-# ==========================================================
-# ==========================================================
-# ÉTAPE 6 : ESTIMATION DU MODÈLE OPTIMAL IDENTIFIÉ
-# ==========================================================
 
 # Estimation du modèle optimal trouvé automatiquement
 

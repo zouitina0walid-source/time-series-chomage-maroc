@@ -1,263 +1,103 @@
+# --- SCRIPT POUR GÉNÉRER LE TABLEAU COMPARATIF ARIMA ---
 
-# ÉTAPE 5 : MÉTHODE DE BOX-JENKINS
-# Identification automatique des paramètres ARIMA(p,d,q)
+# 1. Définir les plages pour p et q (ex: de 0 à 4)
+p_max <- 4
+q_max <- 4
+d <- 1 # Fixé selon votre différenciation
 
+# 2. Initialiser une structure pour stocker les résultats
+resultats <- data.frame()
 
-# Charger les packages
-library(forecast)
-library(tseries)
-
-
-# 1. Différenciation d'ordre 1
-
-
-serie_diff1 <- diff(serie_ts, differences = 1)
-
-
-# 2. Visualisation de la série stationnaire
-
-
-plot(serie_diff1,
-     main = "Série différenciée d'ordre 1",
-     col = "blue",
-     lwd = 2,
-     ylab = "Différences")
-
-# 3. ACF : Identification de q
-
-
-acf_result <- acf(serie_diff1,
-                  lag.max = 20,
-                  plot = TRUE,
-                  main = "Autocorrélogramme (ACF)",
-                  col = "darkblue",
-                  lwd = 2)
-
-
-# 4. PACF : Identification de p
-
-
-pacf_result <- pacf(serie_diff1,
-                    lag.max = 20,
-                    plot = TRUE,
-                    main = "Autocorrélogramme Partiel (PACF)",
-                    col = "red",
-                    lwd = 2)
-
-
-# 5. AFFICHAGE COMBINÉ
-
-
-tsdisplay(serie_diff1,
-          main = "Analyse Box-Jenkins")
-
-
-# 6. IDENTIFICATION AUTOMATIQUE DE p, d, q
-
-
-# d = ordre de différenciation
-d <- 1
-
-# Recherche automatique du meilleur modèle ARIMA
-modele_auto <- auto.arima(serie_ts,
-                          seasonal = FALSE,
-                          stepwise = FALSE,
-                          approximation = FALSE)
-
-# Affichage du meilleur modèle
-print(modele_auto)
-
-
-# 7. EXTRACTION DES PARAMÈTRES p,d,q
-
-
-p <- modele_auto$arma[1]
-q <- modele_auto$arma[2]
-d <- modele_auto$arma[6]
-
-
-# 8. AFFICHAGE DES VRAIES VALEURS
-
-
-cat("\n")
-
-cat("Identification du modèle ARIMA\n")
-
-
-cat("Valeur de p (AR) :", p, "\n")
-cat("Valeur de d (Différenciation) :", d, "\n")
-cat("Valeur de q (MA) :", q, "\n")
-
-
-# 9. INTERPRÉTATION AUTOMATIQUE
-
-
-if(p > 0){
-  cat("La PACF montre une composante autorégressive AR(", p, ").\n")
-} else {
-  cat("Aucune composante AR importante détectée.\n")
+# 3. Boucle sur les combinaisons de p et q
+for (p_val in 0:p_max) {
+  for (q_val in 0:q_max) {
+    
+    # On utilise tryCatch pour éviter que le code s'arrête si un modèle ne converge pas
+    try({
+      # Estimation du modèle
+      fit <- arima(serie_ts, order = c(p_val, d, q_val), method = "ML")
+      
+      # Calcul de la p-valeur de Box-Pierce (sur les résidus, lag 10 par défaut)
+      bp_test <- Box.test(residuals(fit), lag = 10, type = "Box-Pierce")
+      p_valeur_bp <- bp_test$p.value
+      
+      # Stockage des informations
+      ligne <- data.frame(
+        Modele = paste0("ARIMA(", p_val, ",", d, ",", q_val, ")"),
+        p_valeur_BP = round(p_valeur_bp, 4),
+        AIC = round(AIC(fit), 2)
+      )
+      
+      resultats <- rbind(resultats, ligne)
+    }, silent = TRUE)
+  }
 }
 
-if(q > 0){
-  cat("L'ACF montre une composante moyenne mobile MA(", q, ").\n")
+# 4. Trier le tableau par AIC (du plus petit au plus grand)
+resultats_tries <- resultats[order(resultats$AIC), ]
+
+# 5. Afficher le tableau final
+print("Tableau comparatif des modèles (Trié par AIC) :")
+print(resultats_tries)
+
+# 6. Optionnel : Sauvegarder en CSV pour l'ouvrir dans Excel
+# write.csv(resultats_tries, "comparaison_arima.csv", row.names = FALSE)
+# --- SÉLECTION AUTOMATIQUE DU MODÈLE OPTIMAL ---
+
+# 1. On ne garde que les modèles statistiquement valides (p-valeur > 0.05)
+modeles_valides <- resultats[resultats$p_valeur_BP > 0.05, ]
+
+# 2. Parmi les valides, on trouve la ligne avec l'AIC le plus bas
+if (nrow(modeles_valides) > 0) {
+  meilleur_indice <- which.min(modeles_valides$AIC)
+  modele_optimal_nom <- modeles_valides$Modele[meilleur_indice]
+  aic_optimal <- modeles_valides$AIC[meilleur_indice]
+  
+  cat("\n----------------------------------------------\n")
+  cat("RÉSULTAT DE LA SÉLECTION :\n")
+  cat("Le modèle optimal sélectionné est :", modele_optimal_nom, "\n")
+  cat("Avec un AIC de :", aic_optimal, "\n")
+  cat("----------------------------------------------\n")
+  
+  # 3. Extraction des paramètres p, d, q pour la suite
+  # On extrait les chiffres du nom "ARIMA(p,d,q)"
+  params <- as.numeric(gsub("[^0-9]", "", unlist(strsplit(modele_optimal_nom, ","))))
+  p_opt <- params[1]
+  d_opt <- params[2]
+  q_opt <- params[3]
+  
+  # 4. Ré-estimer le modèle final pour les prévisions
+  modele_final <- arima(serie_ts, order = c(p_opt, d_opt, q_opt), method = "ML")
+  
 } else {
-  cat("Aucune composante MA importante détectée.\n")
+  print("Aucun modèle n'a été validé par le test de Box-Pierce.")
 }
+# ==========================================================
+# ÉTAPE 6 : ESTIMATION DU MODÈLE OPTIMAL IDENTIFIÉ
+# ==========================================================
+# ==========================================================
+# ÉTAPE 6 : ESTIMATION DU MODÈLE OPTIMAL IDENTIFIÉ
+# ==========================================================
 
-cat("La série a nécessité", d,
-    "différenciation(s) pour devenir stationnaire.\n")
+# Estimation du modèle optimal trouvé automatiquement
 
-# 10. MODÈLE FINAL
-cat("Modèle retenu : ARIMA(",
-    p, ",", d, ",", q, ")\n")
-
-# ÉTAPE 6 : ESTIMATION DU MODÈLE ARIMA
-
-# Estimation du modèle identifié précédemment
-# Exemple : ARIMA(p,d,q)
-
-modele_arima <- Arima(serie_ts,
-                      order = c(p, d, q))
-
-
-# ÉTAPE 6 : ESTIMATION DU MODÈLE ARIMA
-
-
-# Estimation du modèle identifié précédemment
-# Exemple : ARIMA(p,d,q)
-
-modele_arima <- Arima(serie_ts,
-                      order = c(p, d, q))
+modele_arima <- Arima(
+  serie_ts,
+  order = c(p_opt, d_opt, q_opt)
+)
 
 # Résumé complet du modèle
 summary(modele_arima)
 
-
-# Affichage des coefficients estimés
-
-
 cat("\n")
-
 cat("ESTIMATION DU MODÈLE ARIMA\n")
 
-
 cat("Modèle estimé : ARIMA(",
-    p, ",", d, ",", q, ")\n")
+    p_opt, ",", d_opt, ",", q_opt, ")\n")
 
-
-
+# Coefficients estimés
 print(modele_arima$coef)
 
-
-
-
-# Critères de qualité du modèle
-
-
-cat("AIC  :", AIC(modele_arima), "\n")
-cat("BIC  :", BIC(modele_arima), "\n")
-
-
-# ÉTAPE 7 : VALIDATION DU MODÈLE
-
-
-cat("\n")
-
-cat("VALIDATION DU MODÈLE\n")
-
-
-
-# 1. Résidus du modèle
-
-
-residus <- residuals(modele_arima)
-
-# Visualisation des résidus
-plot(residus,
-     main = "Résidus du modèle ARIMA",
-     col = "blue",
-     lwd = 2)
-
-abline(h = 0, col = "red")
-
-
-# 2. Histogramme des résidus
-
-
-hist(residus,
-     breaks = 10,
-     main = "Histogramme des résidus",
-     col = "lightblue")
-
-
-# 3. ACF des résidus
-
-
-acf(residus,
-    main = "ACF des résidus")
-
-
-# 4. Test de Ljung-Box
-# H0 : les résidus sont indépendants (bruit blanc)
-
-
-ljung_test <- Box.test(residus,
-                       lag = 10,
-                       type = "Ljung-Box")
-
-print(ljung_test)
-
-
-# 5. Interprétation automatique du test
-
-
-if(ljung_test$p.value > 0.05){
-  
-  cat("Les résidus sont indépendants.\n")
-  cat("Le modèle ARIMA est valide.\n")
-  
-} else {
-  
-  cat("Les résidus restent autocorrélés.\n")
-  cat("Le modèle ARIMA n'est pas satisfaisant.\n")
-}
-
-
-# 6. Vérification automatique complète
-
-
-checkresiduals(modele_arima)
-
-
-# 7. Comparaison valeurs réelles vs ajustées
-
-
-valeurs_ajustees <- fitted(modele_arima)
-
-plot(serie_ts,
-     col = "black",
-     lwd = 2,
-     main = "Valeurs réelles vs ajustées",
-     ylab = "Taux")
-
-lines(valeurs_ajustees,
-      col = "red",
-      lwd = 2)
-
-legend("topright",
-       legend = c("Réel", "Ajusté"),
-       col = c("black", "red"),
-       lwd = 2)
-
-
-# 8. Calcul des erreurs
-
-
-erreurs <- accuracy(modele_arima)
-
-cat("\n")
-
-cat("MESURES DE PERFORMANCE\n")
-
-
-print(erreurs)
+# Critères de qualité
+cat("AIC :", AIC(modele_arima), "\n")
+cat("BIC :", BIC(modele_arima), "\n")
